@@ -11,6 +11,8 @@ Workflow:
 - Generator App sents message to Eventhubs
 - Streaming analytics queries device message for failing devices
 
+|architecture-overview|
+
 Setup
 =====
 This setup will deploy the core infrastructure needed to run the the solution:
@@ -99,3 +101,5 @@ Setup your dev environment by creating a virtual environment
     .venv\scripts\activate
 
     deactivate
+
+.. |architecture-overview| image:: docs/StreamingAnalyticsDemoArchitecture.png
