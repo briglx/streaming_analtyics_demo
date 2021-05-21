@@ -15,9 +15,13 @@ from azure.eventhub.aio import EventHubProducerClient
 
 import template_jinja as template
 
-
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
+TOTAL_DEVICE_COUNT = 60
+FAULTY_DEVICE_COUNT = 3
+FAULT_DURATION = 5
+FAULT_CHANCE = 0.1
+WAIT_TIME = 10
 
 
 def generate_guid():
@@ -41,18 +45,23 @@ def get_date_isoformat(date):
     cur_time = date.replace(tzinfo=timezone.utc, microsecond=0)
     return cur_time.isoformat().replace("+00:00", "Z")
 
-def create_device_list(count=50):
+
+def create_device_list(count=TOTAL_DEVICE_COUNT):
+    """Create list of devices for testing."""
     device_list = []
-    for i in range(count):
+    for _ in range(count):
         device_list.append(generate_id())
     return device_list
 
+
 def get_random_device_id(device_list):
+    """Return a random device from the device list."""
     return random.choice(device_list)
 
-def create_sample_data(device_list):
+
+def create_sample_data(device_id):
     """Generate Sample Data."""
-    device_id = get_random_device_id(device_list)
+    # device_id = get_random_device_id(device_list)
     period_start_time = datetime.utcnow()
     period_count = random.randint(0, 30)
     period_end_time = period_start_time + timedelta(0, period_count)
@@ -75,7 +84,7 @@ def create_sample_data(device_list):
         cur_value = cur_value + delta_value
 
     sample_data = {
-        "device_id": generate_id(),
+        "device_id": device_id,
         "create_datetime": get_date_isoformat(period_start_time),
         "SystemGuid": generate_guid(),
         "period_start_time": get_date_isoformat(period_start_time),
@@ -86,11 +95,29 @@ def create_sample_data(device_list):
     return sample_data
 
 
-def get_template_string(path):
-    """Load Message Template."""
-    with open(path, "r") as template_file:
-        src = Template(template_file.read())
-        return src
+def create_drop_list(device_list, count):
+    """Return a list of random devices."""
+    return random.sample(device_list, count)
+
+
+def drop_device_message(data, drop_list, device_drop_count):
+    """Check if the message should be dropped."""
+    if data["device_id"] in drop_list:
+
+        # Add tracking
+        if data["device_id"] not in device_drop_count:
+            device_drop_count[data["device_id"]] = 0
+
+        # Check in in fault state
+        if device_drop_count[data["device_id"]] > 0:
+            device_drop_count[data["device_id"]] -= 1
+            return True
+
+        # Mark device to fail
+        if random.random() < FAULT_CHANCE:
+            device_drop_count[data["device_id"]] = FAULT_DURATION
+
+    return False
 
 
 async def run():
@@ -98,24 +125,37 @@ async def run():
     async with PRODUCER:
 
         device_list = create_device_list()
+        device_drop_list = create_drop_list(device_list, FAULTY_DEVICE_COUNT)
+        device_drop_count = {}
 
         # Loop Forever
         while True:
+
             # Create a batch.
             event_data_batch = await PRODUCER.create_batch()
 
-            data = create_sample_data(device_list)
-            message = template.render_json(data, TEMPLATE_PATH, TEMPLATE_SOURCE_MESSAGE)
+            for device_id in device_list:
 
-            # Add event to the batch.
-            logging.info("Sending Event %s", message)
-            event_data_batch.add(EventData(message))
+                # Get data
+                data = create_sample_data(device_id)
+
+                if drop_device_message(data, device_drop_list, device_drop_count):
+                    logging.info("dropping device message...")
+                else:
+
+                    message = template.render_json(
+                        data, TEMPLATE_PATH, TEMPLATE_SOURCE_MESSAGE
+                    )
+
+                    # Add event to the batch.
+                    logging.info("Sending Event %s", message)
+                    event_data_batch.add(EventData(message))
 
             # Send the batch of events to the event hub.
             await PRODUCER.send_batch(event_data_batch)
 
             logging.info("waiting...")
-            # await asyncio.sleep(1)
+            await asyncio.sleep(WAIT_TIME)
 
 
 if __name__ == "__main__":

@@ -1,0 +1,10 @@
+{
+    "type": "Microsoft.ServiceBus/EventHub",
+     "properties": {
+         "serviceBusNamespace": "<event hub namespace>",
+         "sharedAccessPolicyName": "RootManageSharedAccessKey",
+         "sharedAccessPolicyKey": "<shared access policy key>",
+         "eventHubName": "<event hub name>",
+         "consumerGroupName": "$Default"
+     }
+}
