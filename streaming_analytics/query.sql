@@ -7,8 +7,6 @@ GROUP BY
     TumblingWindow(Duration(second, 10))
 
 
-SELECT System.Timestamp AS WindowEnd, COUNT(*) AS DeviceCount into StreamingDeviceCount FROM SaInputName GROUP BY TumblingWindow(Duration(second, 10))
-
 SELECT 
     deviceId,
     COUNT(*) AS DeviceCount,
