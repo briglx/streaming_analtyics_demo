@@ -113,7 +113,7 @@ Setup your dev environment by creating a virtual environment
 .. code-block:: bash
 
     # virtualenv \path\to\.venv -p path\to\specific_version_python.exe
-    python -m venv .venv.
+    python -m venv .venv
     .venv\scripts\activate
 
     deactivate
